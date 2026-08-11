@@ -75,6 +75,10 @@ Then visit `http://localhost:8000` and assume the role of CISO.
 
 Upload `index.html` to any static host — GitHub Pages, Netlify, S3, a USB drive someone found in a parking lot — and it will run identically, because there is no backend to misconfigure. This is the single most secure architectural decision in this repository.
 
+### Option 4: Be Our CISO (```sudo --yolo```)
+
+You can be our TotallyLegit CISO at [https://TotallyLegitFirewall.ai](https://totallylegitfirewall.ai)
+
 ---
 
 ## 🎮 How To Play
