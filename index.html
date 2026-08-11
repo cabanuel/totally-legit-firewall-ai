@@ -1,0 +1,1179 @@
+<title>TotallyLegitFirewall.ai — CISO Command Console</title>
+<style>
+  :root{
+    --void:#0a0d10;
+    --panel:#12171d;
+    --panel-raised:#1a2129;
+    --panel-raised-2:#212a33;
+    --border:#262e37;
+    --border-soft:#1c232b;
+    --text:#e7edf2;
+    --text-dim:#8b98a5;
+    --text-faint:#4c5764;
+    --accent:#ffb020;
+    --accent-dim:#8a5f14;
+    --accent-glow:rgba(255,176,32,0.35);
+    --good:#3ddc84;
+    --good-glow:rgba(61,220,132,0.35);
+    --warn:#ff9142;
+    --warn-glow:rgba(255,145,66,0.35);
+    --critical:#ff4757;
+    --critical-glow:rgba(255,71,87,0.4);
+    --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, "Liberation Mono", monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(255,176,32,0.06), transparent 60%),
+      var(--void);
+    color:var(--text);
+    font-family:var(--font-sans);
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+
+  /* scanline / CRT atmosphere */
+  .scanlines{
+    position:fixed; inset:0; pointer-events:none; z-index:50;
+    background:repeating-linear-gradient(
+      to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.10) 3px
+    );
+    mix-blend-mode:overlay;
+  }
+  .vignette{
+    position:fixed; inset:0; pointer-events:none; z-index:49;
+    box-shadow: inset 0 0 220px rgba(0,0,0,0.55);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
+  }
+
+  a{ color:inherit; }
+
+  /* ---------- layout shell ---------- */
+  .app{
+    max-width:1400px;
+    margin:0 auto;
+    padding:18px 20px 120px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    position:relative;
+    z-index:1;
+  }
+
+  /* ---------- header ---------- */
+  header.top{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    border-bottom:1px solid var(--border);
+    padding-bottom:14px;
+  }
+  .brand{ display:flex; flex-direction:column; gap:4px; }
+  .brand .logo{
+    font-family:var(--font-mono);
+    font-weight:700;
+    font-size:26px;
+    letter-spacing:-0.5px;
+    color:var(--text);
+    display:flex;
+    align-items:baseline;
+    gap:2px;
+  }
+  .brand .logo .dot-ai{ color:var(--accent); }
+  .brand .logo .cursor{
+    display:inline-block; width:9px; height:1.05em; background:var(--accent);
+    margin-left:6px; animation:blink 1.1s steps(1) infinite; vertical-align:-2px;
+  }
+  @keyframes blink{ 50%{ opacity:0; } }
+  .brand .tagline{
+    font-size:12px; color:var(--text-faint); letter-spacing:0.06em; text-transform:uppercase;
+  }
+  .brand .rolebar{
+    font-size:13px; color:var(--text-dim); margin-top:6px; max-width:560px; line-height:1.5;
+  }
+  .brand .rolebar b{ color:var(--warn); font-weight:600; }
+
+  .hdr-actions{ display:flex; align-items:center; gap:10px; }
+  .btn-ghost{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.05em;
+    color:var(--text-dim);
+    background:transparent;
+    border:1px solid var(--border);
+    padding:8px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    text-transform:uppercase;
+  }
+  .btn-ghost:hover{ border-color:var(--text-dim); color:var(--text); }
+
+  /* ---------- stat rail ---------- */
+  .statrail{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:10px;
+  }
+  .stat{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    min-width:0;
+  }
+  .stat .label{
+    font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-faint);
+    font-family:var(--font-mono);
+  }
+  .stat .value{
+    font-family:var(--font-mono); font-size:22px; font-weight:700; font-variant-numeric:tabular-nums;
+    display:flex; align-items:baseline; gap:6px;
+  }
+  .stat .value small{ font-size:11px; color:var(--text-faint); font-weight:400; }
+  .stat.threat .value{ color:var(--warn); }
+  .stat.blocks .value{ color:var(--good); }
+  .stat.breach .value{ color:var(--critical); }
+  .meter{
+    height:5px; border-radius:3px; background:var(--border-soft); overflow:hidden; margin-top:2px;
+  }
+  .meter i{ display:block; height:100%; background:var(--accent); transition:width .3s ease; }
+
+  /* ---------- main grid ---------- */
+  .maingrid{
+    display:grid;
+    grid-template-columns:1fr 360px;
+    gap:16px;
+    align-items:start;
+  }
+  @media (max-width: 880px){
+    .maingrid{ grid-template-columns:1fr; }
+  }
+
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-bottom:10px;
+  }
+  .panel-head h2{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--text-dim); font-weight:600; margin:0; display:flex; align-items:center; gap:8px;
+  }
+  .panel-head h2 .n{ color:var(--text-faint); font-weight:400; }
+
+  /* ---------- firewall network grid ---------- */
+  .network{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));
+    gap:12px;
+  }
+
+  .fwcard{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px;
+    position:relative;
+    overflow:hidden;
+    transition:border-color .25s ease, box-shadow .25s ease;
+  }
+  .fwcard::before{
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:0;
+    transition:opacity .25s ease;
+  }
+  .fwcard[data-status="secure"]{ border-color:var(--border); }
+  .fwcard[data-status="attacked"]{
+    border-color:var(--warn);
+    box-shadow:0 0 0 1px var(--warn-glow), 0 0 22px -6px var(--warn-glow);
+  }
+  .fwcard[data-status="attacked"]::before{
+    opacity:1;
+    background:linear-gradient(180deg, rgba(255,145,66,0.08), transparent 60%);
+  }
+  .fwcard[data-status="compromised"]{
+    border-color:var(--critical);
+    box-shadow:0 0 0 1px var(--critical-glow), 0 0 26px -4px var(--critical-glow);
+    animation:shake 0.6s ease;
+  }
+  @keyframes shake{
+    10%,90%{ transform:translateX(-1px); } 20%,80%{ transform:translateX(2px); }
+    30%,50%,70%{ transform:translateX(-3px); } 40%,60%{ transform:translateX(3px); }
+  }
+
+  .fw-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .fw-name{ font-size:13.5px; font-weight:600; color:var(--text); line-height:1.3; }
+  .fw-sub{ font-family:var(--font-mono); font-size:10px; color:var(--text-faint); margin-top:2px; letter-spacing:0.02em;}
+
+  .dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+  .dot.secure{ background:var(--good); box-shadow:0 0 8px var(--good-glow); }
+  .dot.attacked{ background:var(--warn); box-shadow:0 0 8px var(--warn-glow); animation:pulse 0.9s ease-in-out infinite; }
+  .dot.compromised{ background:var(--critical); box-shadow:0 0 8px var(--critical-glow); animation:pulse 0.6s ease-in-out infinite; }
+  @keyframes pulse{ 50%{ opacity:0.35; transform:scale(0.8);} }
+
+  .fw-status-row{ display:flex; align-items:center; gap:6px; margin-top:10px; }
+  .fw-status-label{
+    font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase;
+    padding:2px 7px; border-radius:4px; font-weight:700;
+  }
+  .fw-status-label.secure{ color:var(--good); background:rgba(61,220,132,0.12); }
+  .fw-status-label.attacked{ color:var(--warn); background:rgba(255,145,66,0.14); }
+  .fw-status-label.compromised{ color:var(--critical); background:rgba(255,71,87,0.16); }
+
+  .fw-attackinfo{
+    margin-top:10px; font-size:11.5px; color:var(--text-dim); line-height:1.45;
+    min-height:0;
+  }
+  .fw-attackinfo .who{ color:var(--warn); font-weight:600; }
+  .fw-attackinfo .how{ font-family:var(--font-mono); color:var(--text-dim); }
+
+  .fw-bar{
+    margin-top:10px; height:6px; border-radius:3px; background:var(--border-soft); overflow:hidden;
+  }
+  .fw-bar i{ display:block; height:100%; }
+  .fwcard[data-status="attacked"] .fw-bar i{ background:var(--warn); transition:width .12s linear; }
+  .fwcard[data-status="compromised"] .fw-bar i{ background:var(--critical); width:100%; }
+  .fwcard[data-status="secure"] .fw-bar i{ background:var(--good); width:100%; opacity:0.55; }
+
+  .fw-compromised-text{
+    margin-top:10px; font-family:var(--font-mono); font-size:12px; color:var(--critical);
+    letter-spacing:0.03em;
+  }
+  .glitch{ animation:glitchtext 1.4s infinite; }
+  @keyframes glitchtext{
+    0%,100%{ text-shadow:none; }
+    45%{ text-shadow:1px 0 var(--warn), -1px 0 var(--accent); }
+    46%{ text-shadow:none; }
+  }
+
+  .fw-action{
+    margin-top:12px; width:100%; border:none; border-radius:7px; padding:9px 10px;
+    font-family:var(--font-mono); font-size:12px; font-weight:700; letter-spacing:0.04em;
+    text-transform:uppercase; cursor:pointer; transition:transform .1s ease, filter .15s ease;
+  }
+  .fw-action:active{ transform:scale(0.98); }
+  .fw-action.block{
+    background:var(--warn); color:#231400;
+    animation:btnpulse 1s ease-in-out infinite;
+  }
+  @keyframes btnpulse{ 50%{ filter:brightness(1.18);} }
+  .fw-action.restore{ background:var(--panel-raised-2); color:var(--text); border:1px solid var(--critical); }
+  .fw-action.restore:hover{ background:var(--critical); color:#2a0709; }
+  .fw-action[disabled]{ opacity:0.5; cursor:not-allowed; animation:none; }
+
+  /* ---------- terminal / SIEM feed ---------- */
+  .terminal{
+    background:#08090b;
+    border:1px solid var(--border);
+    border-radius:10px;
+    display:flex; flex-direction:column;
+    height:640px;
+    overflow:hidden;
+  }
+  .terminal-bar{
+    display:flex; align-items:center; gap:8px; padding:9px 12px;
+    border-bottom:1px solid var(--border-soft); background:var(--panel);
+    font-family:var(--font-mono); font-size:11px; color:var(--text-faint);
+  }
+  .terminal-bar .dots{ display:flex; gap:5px; margin-right:4px; }
+  .terminal-bar .dots span{ width:8px; height:8px; border-radius:50%; background:var(--border); }
+  .terminal-feed{
+    flex:1; overflow-y:auto; padding:10px 12px; font-family:var(--font-mono); font-size:11.5px;
+    line-height:1.7; scroll-behavior:smooth;
+  }
+  .terminal-feed::-webkit-scrollbar{ width:8px; }
+  .terminal-feed::-webkit-scrollbar-thumb{ background:var(--border); border-radius:4px; }
+  .logline{ display:flex; gap:8px; white-space:pre-wrap; word-break:break-word; opacity:0; animation:fadein .35s ease forwards; }
+  @keyframes fadein{ from{ opacity:0; transform:translateY(2px);} to{ opacity:1; transform:none; } }
+  .logline .ts{ color:var(--text-faint); flex:none; }
+  .logline .lvl{ flex:none; font-weight:700; }
+  .logline .lvl.INFO{ color:var(--text-dim); }
+  .logline .lvl.WARN{ color:var(--warn); }
+  .logline .lvl.ALERT{ color:var(--critical); }
+  .logline .lvl.OK{ color:var(--good); }
+  .logline .msg{ color:var(--text-dim); }
+  .logline.emph .msg{ color:var(--text); }
+
+  /* ---------- footer action bar ---------- */
+  .footerbar{
+    position:fixed; left:0; right:0; bottom:0; z-index:40;
+    background:linear-gradient(180deg, transparent, var(--void) 30%);
+    padding:20px 0 18px;
+  }
+  .footerbar-inner{
+    max-width:1400px; margin:0 auto; padding:0 20px;
+    display:flex; align-items:center; justify-content:center; gap:16px;
+  }
+  .hackback-wrap{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:12px 18px;
+    display:flex; align-items:center; gap:16px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.5);
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .hackback-progress{ display:flex; flex-direction:column; gap:5px; min-width:170px; }
+  .hackback-progress .lbl{ font-family:var(--font-mono); font-size:10px; color:var(--text-faint); letter-spacing:0.05em; text-transform:uppercase; }
+  .hackback-progress .bar{ height:6px; border-radius:3px; background:var(--border-soft); overflow:hidden; }
+  .hackback-progress .bar i{ display:block; height:100%; background:var(--accent); transition:width .3s ease; }
+
+  #hackbackBtn{
+    font-family:var(--font-mono); font-weight:800; letter-spacing:0.08em; font-size:14px;
+    text-transform:uppercase; padding:13px 26px; border-radius:8px; border:none; cursor:pointer;
+    background:var(--panel-raised-2); color:var(--text-faint); transition:all .2s ease;
+  }
+  #hackbackBtn.ready{
+    background:linear-gradient(180deg, var(--accent), #d99310);
+    color:#241500;
+    box-shadow:0 0 0 1px var(--accent-glow), 0 0 30px -4px var(--accent-glow);
+    animation:readypulse 1.4s ease-in-out infinite;
+    cursor:pointer;
+  }
+  #hackbackBtn:disabled{ cursor:not-allowed; }
+  @keyframes readypulse{ 50%{ filter:brightness(1.15); transform:translateY(-1px); } }
+
+  /* ---------- overlay (hack back + game over) ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:100; background:rgba(4,5,6,0.94);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+    opacity:0; pointer-events:none; transition:opacity .3s ease;
+  }
+  .overlay.show{ opacity:1; pointer-events:all; }
+  .overlay canvas{ position:absolute; inset:0; width:100%; height:100%; opacity:0.35; }
+  .overlay-card{
+    position:relative; z-index:2; max-width:560px; width:100%;
+    background:var(--panel); border:1px solid var(--accent-dim); border-radius:12px;
+    padding:28px 26px; box-shadow:0 20px 80px rgba(0,0,0,0.6);
+  }
+  .overlay-card h3{
+    font-family:var(--font-mono); font-size:18px; letter-spacing:0.03em; margin:0 0 4px;
+    color:var(--accent); text-transform:uppercase;
+  }
+  .overlay-card .sub{ font-size:12px; color:var(--text-faint); margin-bottom:18px; }
+  .hb-steps{ display:flex; flex-direction:column; gap:10px; min-height:220px; }
+  .hb-step{ font-family:var(--font-mono); font-size:12.5px; color:var(--text-faint); display:flex; flex-direction:column; gap:5px; opacity:0.3; }
+  .hb-step.active{ opacity:1; color:var(--text); }
+  .hb-step.done{ opacity:0.7; color:var(--good); }
+  .hb-step .bar{ height:4px; background:var(--border-soft); border-radius:2px; overflow:hidden; }
+  .hb-step .bar i{ display:block; height:100%; width:0%; background:var(--accent); }
+  .hb-result{ margin-top:16px; padding-top:16px; border-top:1px solid var(--border-soft); display:none; }
+  .hb-result.show{ display:block; }
+  .hb-result .title{ font-family:var(--font-mono); color:var(--good); font-weight:700; font-size:13px; letter-spacing:0.04em; margin-bottom:8px; }
+  .hb-result p{ font-size:13px; color:var(--text-dim); line-height:1.5; margin:0 0 16px; }
+  .overlay-close{
+    width:100%; padding:11px; border-radius:7px; border:none; cursor:pointer;
+    font-family:var(--font-mono); font-weight:700; letter-spacing:0.05em; text-transform:uppercase;
+    background:var(--good); color:#052012; font-size:12.5px; display:none;
+  }
+  .overlay-close.show{ display:block; }
+
+  .gameover-card{ text-align:center; }
+  .gameover-card h3{ color:var(--critical); font-size:24px; }
+  .gameover-card p{ color:var(--text-dim); font-size:13.5px; line-height:1.6; margin:14px 0 20px; }
+  .gameover-card .score{ font-family:var(--font-mono); font-size:13px; color:var(--text-faint); margin-bottom:18px; }
+  .gameover-card .score b{ color:var(--accent); }
+  .restart-btn{
+    padding:12px 22px; border-radius:8px; border:none; cursor:pointer;
+    font-family:var(--font-mono); font-weight:800; letter-spacing:0.06em; text-transform:uppercase;
+    background:var(--accent); color:#241500; font-size:13px;
+  }
+
+  @media (max-width:600px){
+    .statrail{ grid-template-columns:repeat(2,1fr); }
+    .terminal{ height:380px; }
+  }
+</style>
+
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">TotallyLegitFirewall<span class="dot-ai">.ai</span><span class="cursor"></span></div>
+      <div class="tagline">Enterprise-Grade Cyber Defense Platform™ — Now With AI</div>
+      <div class="rolebar">Welcome back, CISO. Your board deck says <b>"zero incidents this quarter."</b> Please make that true for the next few minutes.</div>
+    </div>
+    <div class="hdr-actions">
+      <button class="btn-ghost" id="restartTop">↺ Restart Simulation</button>
+    </div>
+  </header>
+
+  <section class="statrail">
+    <div class="stat threat">
+      <div class="label">Threat Level</div>
+      <div class="value" id="statThreatText">LOW</div>
+      <div class="meter"><i id="statThreatBar" style="width:5%"></i></div>
+    </div>
+    <div class="stat blocks">
+      <div class="label">Incidents Blocked</div>
+      <div class="value"><span id="statBlocks">0</span> <small>total</small></div>
+    </div>
+    <div class="stat breach">
+      <div class="label">Breaches</div>
+      <div class="value"><span id="statBreach">0</span> <small>/ 6 fireable</small></div>
+    </div>
+    <div class="stat">
+      <div class="label">Board Confidence</div>
+      <div class="value" id="statConfidence" style="color:var(--good)">100%</div>
+    </div>
+  </section>
+
+  <div class="maingrid">
+    <div>
+      <div class="panel-head">
+        <h2>Network Topology <span class="n">— 6 assets under management</span></h2>
+      </div>
+      <div class="network" id="network"></div>
+    </div>
+
+    <div>
+      <div class="panel-head">
+        <h2>SIEM Live Feed <span class="n">— all events, unfiltered</span></h2>
+      </div>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="dots"><span></span><span></span><span></span></span> siem-collector@prod — tail -f /var/log/everything.log</div>
+        <div class="terminal-feed" id="feed"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footerbar">
+  <div class="footerbar-inner">
+    <div class="hackback-wrap">
+      <div class="hackback-progress">
+        <div class="lbl" id="hbLabel">5 blocks to unlock HACK BACK</div>
+        <div class="bar"><i id="hbBar" style="width:0%"></i></div>
+      </div>
+      <button id="hackbackBtn" disabled>🎯 HACK BACK</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="hackbackOverlay">
+  <canvas id="rainCanvas"></canvas>
+  <div class="overlay-card">
+    <h3>Initiating Counter-Hack</h3>
+    <div class="sub">(This is definitely legal. Legal has not confirmed this.)</div>
+    <div class="hb-steps" id="hbSteps"></div>
+    <div class="hb-result" id="hbResult">
+      <div class="title">MISSION COMPLETE</div>
+      <p id="hbResultText"></p>
+      <button class="overlay-close" id="hbClose">Return to Console</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="gameoverOverlay">
+  <div class="overlay-card gameover-card">
+    <h3>YOU HAVE BEEN REPLACED</h3>
+    <p id="gameoverText"></p>
+    <div class="score">Incidents blocked: <b id="finalBlocks">0</b> &nbsp;·&nbsp; Breaches: <b id="finalBreach">0</b></div>
+    <button class="restart-btn" id="restartBtn">Request Severance Package</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ================= content pools ================= */
+
+  var FLAVOR_LOGS = [
+    "The CEO's son opened a phishing email and gave North Korea root access.",
+    "Someone found a USB drive in the parking lot and plugged it into every laptop 'just to see what's on it.'",
+    "The intern just did a sudo git reset --hard on the production branch.",
+    "Marketing deployed a Chrome extension called 'Free Emoji Pack Pro' to the whole department.",
+    "The new hire used 'Password1!' for the domain admin account because it 'met the requirements.'",
+    "Facilities connected the smart thermostat to the corporate VPN.",
+    "Legal forwarded the phishing email to the entire company with the subject 'IS THIS REAL???'",
+    "The vending machine has been pinging an IP address in a country we don't do business with.",
+    "Someone in accounting wired $40,000 to a 'Nigerian prince' who claimed to be the new CFO.",
+    "The board approved a security budget of $12 and a pizza party.",
+    "Dave from sales connected to the wifi network 'FBI Surveillance Van 4.'",
+    "HR just emailed everyone's Social Security numbers in a spreadsheet titled 'DO NOT SHARE.'",
+    "The office printer is now mining cryptocurrency.",
+    "A contractor named Chad plugged a personal router into the server room 'for better signal.'",
+    "Someone renamed the guest wifi to 'Rick Astley' and it's somehow working.",
+    "The summer intern deployed straight to prod on a Friday at 4:59 PM.",
+    "IT support ticket #4021: 'my computer is doing the hacker thing where the screen has green letters.'",
+    "The CFO's LinkedIn was hacked and is now selling protein powder.",
+    "Someone left a sticky note with the root password on the monitor. In the lobby. Facing the window.",
+    "The night shift guard let someone in because they were 'carrying a lot of pizza boxes.'",
+    "Compliance flagged that our incident response plan is a Google Doc named 'final_FINAL_v2_USE_THIS_ONE.'",
+    "A LinkedIn recruiter DMed the CTO asking for 'a quick tour of the server room, for a friend.'",
+    "Someone in the #general Slack channel posted the AWS root credentials 'by accident, again.'",
+    "The office cat walked across the keyboard and somehow disabled two-factor authentication.",
+    "The janitor's cart has been detected running a Bitcoin miner.",
+    "Someone connected their smart fridge to the corporate network and it now has more uptime than our website.",
+    "The new hire's onboarding laptop shipped with 'admin/admin' as the login and nobody changed it.",
+    "A ransomware note was found. It's formatted in Comic Sans. We are not sure how to feel about this.",
+    "Someone in engineering pushed the .env file to a public GitHub repo. Again.",
+    "The CEO wants to know if we can 'just build our own firewall, but better, by Friday.'",
+    "Legal is asking if hacking back is legal. The answer is still no.",
+    "The break room Keurig has been added to three different botnets this week.",
+    "An employee's 'strong' password was found to be the name of their dog, followed by '123'.",
+    "The security awareness training video has a 12% completion rate. The pizza party had 100%.",
+    "Someone whitelisted 0.0.0.0/0 'temporarily' fourteen months ago.",
+    "The intern asked if 'hacking' is when you type really fast.",
+    "A vendor's 'secure' cloud storage bucket was found to be named 'definitely-not-public.'",
+    "Someone used the company AmEx to buy a hacking course from a guy on Instagram.",
+    "The mainframe (a Dell from 2011 in the supply closet) is somehow still running Windows XP.",
+    "A phishing email disguised as a 'mandatory HR survey' had a 34% click-through rate. Marketing is jealous.",
+    "The new social media intern tweeted the admin panel URL 'because it looked cool.'",
+    "Someone's Zoom background is a live screen share of their password manager. On accident. During the board meeting.",
+    "The office is being DDoSed by the office itself, because someone set up an infinite Slack webhook loop.",
+    "A 'penetration tester' the company hired turned out to be a 14-year-old's freelance gig on Fiverr.",
+    "Someone connected their personal Alexa to the conference room and now it responds to 'Hey Siri' from three floors away.",
+    "The QA team found a login bypass by pressing the back button really fast. It has been in production for two years.",
+    "An employee's out-of-office reply lists their home address, cell phone, and current password 'in case of emergencies.'",
+    "Someone renamed the production database 'test_do_not_use' to 'stop people from touching it.' It did not work.",
+    "The company's incident response plan was found laminated and taped inside a filing cabinet nobody has opened since 2019.",
+    "A hacker tried to social-engineer the front desk by claiming to be 'the internet guy.' It worked.",
+    "The CEO wants the new firewall dashboard to 'look more like the Terminator movies.'",
+    "Someone set their away message to include the wifi password 'for convenience.'",
+    "The office smart lightbulbs are exfiltrating data to a server in a country with no extradition treaty.",
+    "A junior dev pushed an API key to npm inside a package called 'my-cool-test-thing.'",
+    "The security team's own Slack channel got phished by someone posing as the security team.",
+    "Someone in finance approved an invoice from 'Defintely Real Software Inc.' for $18,000.",
+    "The company's password policy requires a special character. Everyone is now using '!' at the very end.",
+    "A hacker got in through the coffee machine's firmware update mechanism. We did not know the coffee machine had firmware.",
+    "The intern tried to 'trace the hacker's IP' using a website that just shows a fake progress bar.",
+    "An employee reused their work email password on a website selling discount garden gnomes. The gnomes site got breached.",
+    "The board is asking why we need a security team if 'nothing bad has happened yet.'",
+    "Someone plugged a 'free' USB fan from a trade show directly into the CFO's laptop.",
+    "The company's disaster recovery plan is a single PowerPoint slide that says 'we'll figure it out.'",
+    "A phishing site cloned our login page perfectly, including the typo in our own tagline.",
+    "Someone in HR clicked 'Enable Macros' on a resume named 'totally_a_resume.docm.'",
+    "The new hire's badge photo is a screenshot of a badge photo, which somehow still worked.",
+    "A hacker left a note in the server logs that just says 'nice firewall, lol.'",
+    "Someone connected the office thermostat to a chatbot and now it argues with people about the temperature.",
+    "The annual security audit was 'passed' by unplugging the monitor showing the failing test.",
+    "A vendor's support tech remoted into our systems using a screen-sharing app and a password of '1234'.",
+    "Someone's LinkedIn headline now says 'Ethical Hacker' after watching one video.",
+    "The office Roomba has been mapping the floor plan and uploading it somewhere. We don't know where. It won't say.",
+    "An 'urgent' email from the 'CEO' asking for gift cards was sent from ceo@totallylegitfirewal1.ai. Three people fell for it.",
+    "The new intern's first commit deleted the .gitignore file. The second commit was 'oops.'",
+    "Someone in the server room is using a space heater plugged into the same outlet as the backup power supply.",
+    "The 'anonymous' tip line received a tip that was signed with someone's full name, title, and LinkedIn URL.",
+    "A hacker attempted to brute-force the CEO's password. It took four tries. It was 'CEO2024!.'",
+    "Someone set up a personal cloud sync on a company laptop and is now syncing the entire customer database to their home PC.",
+    "The security team's incident tracker is a shared spreadsheet that three people are editing at once, with no version history.",
+    "An employee's badge was cloned by someone standing 'a little too close' in the elevator.",
+    "The office guest wifi password has not changed since 2016. It is 'Welcome1.'",
+    "Someone approved a browser extension permission request without reading it. It was for 'view and change all your data on all websites.'",
+    "A hacker posted our internal Slack export on a forum. Most of the messages are about lunch orders.",
+    "The company's 'air-gapped' backup server is connected to the internet via a USB wifi dongle someone added 'temporarily.'",
+    "Someone in sales demoed the product using real customer data 'because the fake data looked less impressive.'",
+    "The intern asked if we could 'just ask the hackers nicely to stop.'",
+    "A malicious actor is now the top contributor on our internal wiki, editing every page to say 'pwned.'",
+    "Someone's two-factor authentication app is their own email account, which does not have two-factor authentication.",
+    "The office fax machine (yes, we still have one) was used as an entry point. Nobody remembers the fax machine's password.",
+    "A hacker is now inside the building. He is wearing a hi-vis vest and carrying a clipboard. Nobody has stopped him.",
+    "Someone connected their gaming PC to the corporate network to 'get better ping' during their lunch break.",
+    "The company's bug bounty program received its first submission: a screenshot of someone finding the admin panel via Google.",
+    "An employee's out-of-office autoresponder is now replying to phishing emails, extending the phishing campaign by three weeks.",
+    "The security dashboard's 'PANIC BUTTON' was pressed by someone who thought it dispensed snacks.",
+    "A hacker's ransom note demands payment in a video game currency. The finance team is 'looking into it.'",
+    "Someone in IT set every employee's password reset question to 'What is your favorite color?' Answer on file: 'blue' for 340 employees.",
+    "The office smart TV in the conference room has been displaying the word 'HACKED' in Comic Sans since Tuesday. Nobody has reported it.",
+    "A vendor's 'zero-trust' security solution turned out to be a PDF titled 'Zero Trust Best Practices (2014).'",
+    "The company's disaster recovery drill was cancelled because 'everyone was busy that day.'",
+    "Someone plugged an unlabeled Ethernet cable into the guest network switch and it turned out to be the payroll system.",
+    "The CISO (that's you) has 47 unread security alerts and one is titled 'this is fine.'",
+    "A hacker is trying to sell our 'confidential data' online. It's mostly cafeteria menus from 2022.",
+    "Someone's LinkedIn 'open to work' post accidentally included a screenshot of our internal org chart.",
+    "The new hire completed security training in 4 minutes by clicking through every slide without reading.",
+    "A hacker left a review of our security posture. Two stars. 'Easy to get in, snacks were decent.'",
+    "Someone taped their badge to the inside of the front door 'so people can just tap it themselves.'",
+    "The office Slack bot was given admin permissions to 'make onboarding easier' and now it can delete channels.",
+    "A hacker's calling card is a folder named 'FOR THE LULZ' left in the shared drive.",
+    "Someone in procurement bought 'enterprise-grade' security software off a banner ad.",
+    "The company's password vault's master password is written on a whiteboard visible from the parking lot.",
+    "An employee's smartwatch auto-connected to a hacker's fake wifi hotspot named 'Free Corporate WiFi (Legit).'",
+    "The security team's meeting to discuss the breach was interrupted by a phishing email about the breach.",
+    "Someone deployed a 'temporary' testing endpoint with no authentication. It has been live for 400 days.",
+    "The office received a 'free' promotional USB charging cable. It is now plugged into six laptops.",
+    "A hacker changed the company office playlist to just one dramatic movie theme, on loop.",
+    "Someone's autofill saved the admin password into a public kiosk at the airport.",
+    "The intern tried to fight the hacker in a typing speed contest. The hacker won. The hacker was a bot.",
+    "A phishing campaign impersonating IT support asked employees to 'verify their password by typing it backwards.' Eleven people complied.",
+    "Someone connected a smart doorbell to the corporate wifi and it is now live-streaming the front lobby to the public internet.",
+    "The company's chief AI officer suggested 'just asking the AI to stop the hackers.'",
+    "A hacker replaced the loading spinner on our website with a tiny dancing skeleton. Engineering says it's 'kind of an upgrade.'",
+    "Someone printed a folder of sensitive documents and left it on the printer for three days.",
+    "The break room whiteboard has the wifi password, the server room door code, and someone's grocery list.",
+    "An automated phishing test sent by the security team was reported as spam by the security team's own inbox.",
+    "The office's smart parking gate was hacked and now only opens for cars honking a specific dramatic movie theme.",
+    "Someone gave a stranger 'temporary' remote access to fix their printer. The stranger was not from IT.",
+    "The intern's resume, found on a public job board, lists 'root access to production' as a skill.",
+    "A hacker is currently editing our Wikipedia page to say the company was founded by a golden retriever.",
+    "Someone's password manager autofilled the CEO's banking password into the office pizza order form.",
+    "The security operations center ran out of coffee at 9:14 AM and detection rates have never recovered."
+  ];
+
+  var COMBO_SUBJECTS = [
+    "The intern", "Kevin from accounting", "The CEO's nephew", "Dave in facilities", "The new hire",
+    "Someone in marketing", "The night shift guard", "A contractor named Chad", "The summer intern",
+    "Someone in HR", "The CFO", "A guy claiming to be from IT", "The office cat", "Gary from procurement",
+    "The vending machine", "Legal", "The janitor", "A LinkedIn recruiter", "The entire sales team",
+    "Someone in the #general Slack channel"
+  ];
+  var COMBO_INCIDENTS = [
+    "clicked a link promising a free cruise",
+    "plugged a USB drive found in the parking lot into a work laptop",
+    "gave their password to someone claiming to be 'IT'",
+    "ran sudo rm -rf / to 'clean things up'",
+    "installed a browser extension that mines cryptocurrency",
+    "connected to a wifi network named 'FBI Surveillance Van'",
+    "forwarded a phishing email to the entire company",
+    "used 'password123' for the domain admin account",
+    "left a laptop unlocked at a coffee shop",
+    "shared a cloud root key in a public Slack channel",
+    "opened an attachment named 'invoice_final_FINAL.exe'",
+    "approved a $9,000 gift card request from the 'CEO'",
+    "reset the wifi password to the old wifi password",
+    "disabled two-factor authentication because it was 'annoying'",
+    "uploaded the customer database to a personal cloud drive",
+    "typed the master password into a chatbot to 'see if it worked'",
+    "let a stranger 'borrow' their badge to grab lunch",
+    "renamed a spreadsheet of passwords to 'definitely_not_passwords'",
+    "asked the hacker to 'please stop' in the ransom chat",
+    "confirmed their identity to a robocall by reading out their password"
+  ];
+
+  var HACKER_GROUPS = [
+    "APT-420 'Lazy Panda'", "Fancy Bear's Nephew", "The Nigerian Prince Consortium",
+    "DarkLordxXx420 (script kiddie)", "LulzSec Reboot Tour 2026", "a bored teenager in his mom's basement",
+    "Cozy Bear (on his lunch break)", "the Chaos Computer Club, community college chapter",
+    "a guy who watched one YouTube tutorial", "the hacker collective 'Definitely Not The Interns'",
+    "GlobalRansom-as-a-Service™", "a Discord server calling itself Anonymous"
+  ];
+  var ATTACK_TYPES = [
+    "SQL injection copy-pasted from a forum", "brute-force attack using a leaked password list",
+    "zero-day found on a sketchy forum", "credential-stuffing attack with decade-old breach data",
+    "DDoS from a botnet of smart toasters", "social-engineering call pretending to be 'the new IT guy'",
+    "USB rubber ducky dropped in the parking lot", "man-in-the-middle attack from the coffee shop wifi",
+    "supply-chain attack via a fake package called 'left-pad2'", "phishing email with 17 exclamation points",
+    "ransomware disguised as a PDF invoice", "attack performed while typing really fast wearing sunglasses indoors",
+    "attempt to 'hack the mainframe' using a decade-old scripting language",
+    "fake 3D rotating interface allegedly used to 'trace the IP'", "unconvincing yell of 'I'M IN' followed by furious typing"
+  ];
+
+  var BLOCK_MESSAGES = [
+    "CISO deployed a mitigation so fast the SOC team applauded.",
+    "Threat neutralized. #security-wins has been pinged.",
+    "Firewall rule pushed. The attacker's connection just... stopped.",
+    "Mitigation deployed. Somewhere, a hacker closes his laptop in frustration.",
+    "Intrusion blocked before it reached the changelog.",
+    "CISO's reflexes: unreasonably good today.",
+    "Attack traffic dropped at the edge. Coffee remains hot.",
+    "Countermeasure deployed. The board will never know how close that was.",
+    "Access denied. The hacker's 'I'M IN' post has been deleted.",
+    "Rule shipped, threat gone, incident ticket auto-closed.",
+    "The firewall held. Somewhere a vendor sales rep feels validated.",
+    "Blocked. The SOC Slack channel just sent nine fire emojis."
+  ];
+  var BREACH_MESSAGES = [
+    "compromised. Someone is already updating the incident response Google Doc.",
+    "breached. The war room has been booked. So has the good conference room.",
+    "compromised. PR is drafting a statement that says 'we take security seriously.'",
+    "breached. The vendor's SLA does not cover this.",
+    "compromised. Someone just asked if this counts as a 'learning opportunity.'",
+    "breached. The stock ticker has not reacted yet. Give it an hour.",
+    "compromised. The intern is asking if this means he gets a cybersecurity badge now."
+  ];
+  var RESTORE_MESSAGES = [
+    "restored to a known-good state. Mostly.",
+    "patched, rebooted, and given a stern talking-to.",
+    "brought back online. Nobody is fully sure why it went down.",
+    "recovered. The postmortem doc has one bullet point: 'it happened.'"
+  ];
+
+  var HB_STEPS = [
+    "Establishing an Totally Legit and legal reverse shell",
+    "Bypassing their firewall (embarrassingly, it's also TotallyLegitFirewall.ai)",
+    "Rerouting through 7 proxies and a Starbucks in Belarus",
+    "Downloading their browser history for 'evidence'",
+    "Uploading a dramatic ASCII skull to their homepage",
+    "Enhancing. Enhancing again. Enhancing a third time for no reason",
+    "Cracking AES-256 using a spreadsheet, somehow",
+    "Leaving a calling card that says 'we saw you first'",
+    "Looking up tar commands",
+    "Installing vim and removing emacs",
+    "Switching their keyboard layout to Dvorak"
+  ];
+  var HB_RESULTS = [
+    "Target's webcam now displays a rotating GIF of a dancing banana. Attribution: undeniable.",
+    "The attacker's terminal now only accepts input in Comic Sans. He has rage-quit.",
+    "You've rerouted their entire botnet to mine goodwill instead of cryptocurrency. It is not going well for them.",
+    "Their C2 server's homepage now reads 'This hacker has been reported to his mother.'",
+    "You replaced their ransomware note with a coupon for 10% off at a sandwich shop.",
+    "Their IDE now autocompletes every variable name to 'oopsie'. It cannot be undone by them.",
+    "You've added their IP to a list titled 'people who will be mocked at the next DEFCON.'",
+    "Their entire desktop background is now a photo of your firewall dashboard, smiling.",
+    "The attacker just received a very stern, very anonymous LinkedIn message.",
+    "Their keyboard now only types in Comic Sans and occasionally says 'nice try.'"
+  ];
+
+  var GAMEOVER_LINES = [
+    "The board reviewed the incident timeline and has decided to 'go in a different direction.' That direction is a chatbot with a security badge emoji.",
+    "Your final Slack message was 'I have this handled.' It was sent four breaches ago.",
+    "The exit interview form has a field for 'root cause.' You wrote 'everything.'",
+    "Legal says this technically counts as 'multiple learning opportunities.'",
+    "Your successor's first act was to enable a firewall rule you suggested three breaches ago."
+  ];
+
+  /* ================= state ================= */
+
+  var FIREWALLS = [
+    { id:"perimeter", name:"Perimeter Firewall", sub:"NYC-DC1 / edge" },
+    { id:"waf", name:"Cloud WAF", sub:"us-east-1" },
+    { id:"vpn", name:"VPN Gateway", sub:"remote access" },
+    { id:"email", name:"Email Security Gateway", sub:"inbound mail" },
+    { id:"db", name:"Database Bastion Host", sub:"prod-db-01" },
+    { id:"fridge", name:"Smart Fridge", sub:"break room IoT" }
+  ];
+
+  var state = {
+    firewalls: {},
+    blocks: 0,
+    breaches: 0,
+    hackbackBaseline: 0,
+    hackbackActive: false,
+    gameOver: false,
+    lastLogs: []
+  };
+
+  FIREWALLS.forEach(function(f){
+    state.firewalls[f.id] = {
+      def: f, status:"secure", attackStart:0, attackDuration:0,
+      hacker:"", attack:"", restoring:false, restoreStart:0, restoreDuration:3200
+    };
+  });
+
+  /* ================= dom refs ================= */
+
+  var $network = document.getElementById("network");
+  var $feed = document.getElementById("feed");
+  var $statThreatText = document.getElementById("statThreatText");
+  var $statThreatBar = document.getElementById("statThreatBar");
+  var $statBlocks = document.getElementById("statBlocks");
+  var $statBreach = document.getElementById("statBreach");
+  var $statConfidence = document.getElementById("statConfidence");
+  var $hbLabel = document.getElementById("hbLabel");
+  var $hbBar = document.getElementById("hbBar");
+  var $hackbackBtn = document.getElementById("hackbackBtn");
+  var $hackbackOverlay = document.getElementById("hackbackOverlay");
+  var $hbSteps = document.getElementById("hbSteps");
+  var $hbResult = document.getElementById("hbResult");
+  var $hbResultText = document.getElementById("hbResultText");
+  var $hbClose = document.getElementById("hbClose");
+  var $gameoverOverlay = document.getElementById("gameoverOverlay");
+  var $gameoverText = document.getElementById("gameoverText");
+  var $finalBlocks = document.getElementById("finalBlocks");
+  var $finalBreach = document.getElementById("finalBreach");
+
+  /* ================= helpers ================= */
+
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function rand(min,max){ return Math.random()*(max-min)+min; }
+  function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
+  function pad(n){ return n<10 ? "0"+n : ""+n; }
+  function timeNow(){
+    var d = new Date();
+    return pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds());
+  }
+
+  function nextFlavorMessage(){
+    var pool = Math.random() < 0.35
+      ? [pick(COMBO_SUBJECTS)+" "+pick(COMBO_INCIDENTS)+"."]
+      : null;
+    var msg = pool ? pool[0] : pick(FLAVOR_LOGS);
+    // avoid immediate repeat
+    if (state.lastLogs.indexOf(msg) !== -1 && state.lastLogs.length < 300) {
+      return nextFlavorMessage();
+    }
+    state.lastLogs.push(msg);
+    if (state.lastLogs.length > 12) state.lastLogs.shift();
+    return msg;
+  }
+
+  function pushLog(msg, level, emph){
+    var line = document.createElement("div");
+    line.className = "logline" + (emph ? " emph" : "");
+    line.innerHTML =
+      '<span class="ts">'+timeNow()+'</span>' +
+      '<span class="lvl '+level+'">'+level+'</span>' +
+      '<span class="msg"></span>';
+    line.querySelector(".msg").textContent = msg;
+    $feed.appendChild(line);
+    while ($feed.children.length > 220) $feed.removeChild($feed.firstChild);
+    $feed.scrollTop = $feed.scrollHeight;
+  }
+
+  /* ================= rendering ================= */
+
+  function renderNetwork(){
+    $network.innerHTML = "";
+    FIREWALLS.forEach(function(f){
+      var s = state.firewalls[f.id];
+      var card = document.createElement("div");
+      card.className = "fwcard";
+      card.setAttribute("data-status", s.status);
+      card.setAttribute("data-id", f.id);
+
+      var dotClass = s.status;
+      var statusLabel = s.status === "secure" ? "SECURE" : (s.status === "attacked" ? "UNDER ATTACK" : "COMPROMISED");
+
+      var html = '';
+      html += '<div class="fw-top"><div><div class="fw-name">'+f.name+'</div><div class="fw-sub">'+f.sub+'</div></div><span class="dot '+dotClass+'"></span></div>';
+      html += '<div class="fw-status-row"><span class="fw-status-label '+s.status+'">'+statusLabel+'</span></div>';
+
+      if (s.status === "attacked") {
+        html += '<div class="fw-attackinfo"><span class="who">'+s.hacker+'</span><br><span class="how">'+s.attack+'</span></div>';
+        html += '<div class="fw-bar"><i id="bar-'+f.id+'" style="width:100%"></i></div>';
+        html += '<button class="fw-action block" data-action="block" data-id="'+f.id+'">Deploy Mitigation</button>';
+      } else if (s.status === "compromised") {
+        html += '<div class="fw-compromised-text glitch">⚠ ACTIVE BREACH — DATA EXFIL IN PROGRESS</div>';
+        html += '<div class="fw-bar"><i style="width:100%"></i></div>';
+        if (s.restoring) {
+          html += '<button class="fw-action restore" data-id="'+f.id+'" disabled>Restoring… <span id="restorepct-'+f.id+'">0%</span></button>';
+        } else {
+          html += '<button class="fw-action restore" data-action="restore" data-id="'+f.id+'">Patch &amp; Restore</button>';
+        }
+      } else {
+        html += '<div class="fw-attackinfo">No active threats detected.</div>';
+        html += '<div class="fw-bar"><i style="width:100%"></i></div>';
+      }
+
+      card.innerHTML = html;
+      $network.appendChild(card);
+    });
+  }
+
+  function updateStats(){
+    $statBlocks.textContent = state.blocks;
+    $statBreach.textContent = state.breaches;
+
+    var attackedCount = FIREWALLS.filter(function(f){ return state.firewalls[f.id].status === "attacked"; }).length;
+    var compromisedCount = FIREWALLS.filter(function(f){ return state.firewalls[f.id].status === "compromised"; }).length;
+    var threatScore = clamp((attackedCount*18 + compromisedCount*30), 4, 100);
+    $statThreatBar.style.width = threatScore + "%";
+    var threatLabel = threatScore > 66 ? "CRITICAL" : threatScore > 36 ? "ELEVATED" : threatScore > 12 ? "GUARDED" : "LOW";
+    $statThreatText.textContent = threatLabel;
+    $statThreatBar.style.background = threatScore > 66 ? "var(--critical)" : threatScore > 36 ? "var(--warn)" : "var(--accent)";
+
+    var confidence = clamp(100 - state.breaches*16, 4, 100);
+    $statConfidence.textContent = confidence + "%";
+    $statConfidence.style.color = confidence > 60 ? "var(--good)" : confidence > 30 ? "var(--warn)" : "var(--critical)";
+
+    var progress = state.blocks - state.hackbackBaseline;
+    var need = 5;
+    if (progress >= need) {
+      $hbLabel.textContent = "HACK BACK READY";
+      $hbBar.style.width = "100%";
+      $hackbackBtn.disabled = false;
+      $hackbackBtn.classList.add("ready");
+    } else {
+      var remaining = need - progress;
+      $hbLabel.textContent = remaining + " block" + (remaining===1?"":"s") + " to unlock HACK BACK";
+      $hbBar.style.width = clamp((progress/need)*100, 0, 100) + "%";
+      $hackbackBtn.disabled = true;
+      $hackbackBtn.classList.remove("ready");
+    }
+  }
+
+  /* ================= game actions ================= */
+
+  function spawnAttack(){
+    if (state.gameOver || state.hackbackActive) return;
+    var secureOnes = FIREWALLS.filter(function(f){ return state.firewalls[f.id].status === "secure"; });
+    var maxConcurrent = clamp(2 + Math.floor(state.blocks/6), 2, 4);
+    var currentlyBusy = FIREWALLS.filter(function(f){ return state.firewalls[f.id].status !== "secure"; }).length;
+    if (secureOnes.length === 0 || currentlyBusy >= maxConcurrent) return;
+
+    var target = pick(secureOnes);
+    var s = state.firewalls[target.id];
+    var duration = clamp(8200 - state.blocks*140, 4200, 8200);
+    s.status = "attacked";
+    s.attackStart = performance.now();
+    s.attackDuration = duration;
+    s.hacker = pick(HACKER_GROUPS);
+    s.attack = pick(ATTACK_TYPES);
+
+    pushLog(s.hacker+" launched a "+s.attack+" against "+target.name+".", "ALERT", true);
+    renderNetwork();
+    updateStats();
+  }
+
+  function blockAttack(id){
+    var s = state.firewalls[id];
+    if (!s || s.status !== "attacked") return;
+    s.status = "secure";
+    state.blocks++;
+    pushLog(pick(BLOCK_MESSAGES)+" ["+state.firewalls[id].def.name+"]", "OK", true);
+    renderNetwork();
+    updateStats();
+  }
+
+  function compromiseAttack(id){
+    var s = state.firewalls[id];
+    if (!s || s.status !== "attacked") return;
+    s.status = "compromised";
+    state.breaches++;
+    pushLog(state.firewalls[id].def.name+" "+pick(BREACH_MESSAGES), "ALERT", true);
+    renderNetwork();
+    updateStats();
+    if (state.breaches >= 6) triggerGameOver();
+  }
+
+  function startRestore(id){
+    var s = state.firewalls[id];
+    if (!s || s.status !== "compromised" || s.restoring) return;
+    s.restoring = true;
+    s.restoreStart = performance.now();
+    renderNetwork();
+  }
+
+  function finishRestore(id){
+    var s = state.firewalls[id];
+    s.status = "secure";
+    s.restoring = false;
+    pushLog(state.firewalls[id].def.name+" "+pick(RESTORE_MESSAGES), "INFO", true);
+    renderNetwork();
+    updateStats();
+  }
+
+  /* ================= tick loop ================= */
+
+  function tick(now){
+    if (!state.gameOver) {
+      FIREWALLS.forEach(function(f){
+        var s = state.firewalls[f.id];
+        if (s.status === "attacked") {
+          var elapsed = now - s.attackStart;
+          var pct = clamp(100 - (elapsed/s.attackDuration)*100, 0, 100);
+          var bar = document.getElementById("bar-"+f.id);
+          if (bar) bar.style.width = pct + "%";
+          if (elapsed >= s.attackDuration) {
+            compromiseAttack(f.id);
+          }
+        } else if (s.status === "compromised" && s.restoring) {
+          var relapsed = now - s.restoreStart;
+          var rpct = clamp((relapsed/s.restoreDuration)*100, 0, 100);
+          var rspan = document.getElementById("restorepct-"+f.id);
+          if (rspan) rspan.textContent = Math.round(rpct) + "%";
+          if (relapsed >= s.restoreDuration) {
+            finishRestore(f.id);
+          }
+        }
+      });
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  /* ================= schedulers ================= */
+
+  function scheduleFlavor(){
+    var delay = rand(1500, 3600);
+    setTimeout(function(){
+      if (!state.gameOver) {
+        var level = Math.random() < 0.38 ? "WARN" : "INFO";
+        pushLog(nextFlavorMessage(), level, false);
+      }
+      scheduleFlavor();
+    }, delay);
+  }
+  scheduleFlavor();
+
+  function scheduleAttack(){
+    var delay = rand(2200, 3900);
+    setTimeout(function(){
+      spawnAttack();
+      scheduleAttack();
+    }, delay);
+  }
+  scheduleAttack();
+
+  /* ================= event delegation ================= */
+
+  $network.addEventListener("click", function(e){
+    var btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    var id = btn.getAttribute("data-id");
+    var action = btn.getAttribute("data-action");
+    if (action === "block") blockAttack(id);
+    if (action === "restore") startRestore(id);
+  });
+
+  /* ================= hack back sequence ================= */
+
+  function runHackback(){
+    if (state.hackbackActive || $hackbackBtn.disabled) return;
+    state.hackbackActive = true;
+    state.hackbackBaseline = state.blocks;
+    updateStats();
+
+    // clear all current attacks as the "counter-strike" reward
+    FIREWALLS.forEach(function(f){
+      var s = state.firewalls[f.id];
+      if (s.status === "attacked") { s.status = "secure"; }
+    });
+    renderNetwork();
+    pushLog("CISO initiated a counter-hack. All active intrusions were forcibly dropped.", "OK", true);
+
+    $hbResult.classList.remove("show");
+    $hbSteps.innerHTML = "";
+    var chosenSteps = HB_STEPS.slice().sort(function(){ return Math.random()-0.5; }).slice(0, 5);
+    var stepEls = chosenSteps.map(function(text){
+      var el = document.createElement("div");
+      el.className = "hb-step";
+      el.innerHTML = '<span>'+text+'…</span><div class="bar"><i></i></div>';
+      $hbSteps.appendChild(el);
+      return el;
+    });
+
+    $hackbackOverlay.classList.add("show");
+    startRain();
+
+    var i = 0;
+    function runStep(){
+      if (i > 0) {
+        stepEls[i-1].classList.remove("active");
+        stepEls[i-1].classList.add("done");
+        stepEls[i-1].querySelector("i").style.width = "100%";
+      }
+      if (i >= stepEls.length) {
+        finishHackback();
+        return;
+      }
+      var el = stepEls[i];
+      el.classList.add("active");
+      var bar = el.querySelector("i");
+      var stepDur = reduceMotion ? 50 : rand(650, 1050);
+      var start = performance.now();
+      (function anim(){
+        var p = clamp((performance.now()-start)/stepDur, 0, 1);
+        bar.style.width = (p*100)+"%";
+        if (p < 1) requestAnimationFrame(anim);
+      })();
+      i++;
+      setTimeout(runStep, stepDur + 90);
+    }
+    runStep();
+  }
+
+  function finishHackback(){
+    $hbResultText.textContent = pick(HB_RESULTS);
+    $hbResult.classList.add("show");
+    $hbClose.classList.add("show");
+    pushLog("Counter-hack complete. "+ $hbResultText.textContent, "OK", true);
+  }
+
+  $hbClose.addEventListener("click", function(){
+    $hackbackOverlay.classList.remove("show");
+    stopRain();
+    state.hackbackActive = false;
+    updateStats();
+  });
+  $hackbackBtn.addEventListener("click", runHackback);
+
+  /* ================= matrix rain (hack back overlay only) ================= */
+
+  var rainCanvas = document.getElementById("rainCanvas");
+  var rainCtx = rainCanvas.getContext("2d");
+  var rainCols = [];
+  var rainTimer = null;
+  var CHARS = "01アカサタナハマヤラワ$#&%{}<>/\\CISO01";
+
+  function startRain(){
+    if (reduceMotion) return;
+    resizeRain();
+    var fontSize = 15;
+    var colCount = Math.floor(rainCanvas.width/fontSize);
+    rainCols = new Array(colCount).fill(0).map(function(){ return Math.random()*-40; });
+    if (rainTimer) clearInterval(rainTimer);
+    rainTimer = setInterval(function(){
+      rainCtx.fillStyle = "rgba(8,9,11,0.14)";
+      rainCtx.fillRect(0,0,rainCanvas.width, rainCanvas.height);
+      rainCtx.font = fontSize+"px monospace";
+      for (var c=0; c<rainCols.length; c++){
+        var char = CHARS[Math.floor(Math.random()*CHARS.length)];
+        var x = c*fontSize;
+        var y = rainCols[c]*fontSize;
+        rainCtx.fillStyle = Math.random() < 0.06 ? "#ffe6ad" : "rgba(255,176,32,0.75)";
+        rainCtx.fillText(char, x, y);
+        if (y > rainCanvas.height && Math.random() > 0.975) rainCols[c] = 0;
+        rainCols[c]++;
+      }
+    }, 55);
+  }
+  function stopRain(){
+    if (rainTimer) { clearInterval(rainTimer); rainTimer = null; }
+    rainCtx.clearRect(0,0,rainCanvas.width, rainCanvas.height);
+  }
+  function resizeRain(){
+    rainCanvas.width = rainCanvas.clientWidth;
+    rainCanvas.height = rainCanvas.clientHeight;
+  }
+  window.addEventListener("resize", function(){ if (rainTimer) resizeRain(); });
+
+  /* ================= game over / restart ================= */
+
+  function triggerGameOver(){
+    state.gameOver = true;
+    $gameoverText.textContent = pick(GAMEOVER_LINES);
+    $finalBlocks.textContent = state.blocks;
+    $finalBreach.textContent = state.breaches;
+    $gameoverOverlay.classList.add("show");
+    pushLog("CISO access revoked. Session terminated.", "ALERT", true);
+  }
+
+  function restartGame(){
+    state.blocks = 0;
+    state.breaches = 0;
+    state.hackbackBaseline = 0;
+    state.hackbackActive = false;
+    state.gameOver = false;
+    state.lastLogs = [];
+    FIREWALLS.forEach(function(f){
+      state.firewalls[f.id] = {
+        def: f, status:"secure", attackStart:0, attackDuration:0,
+        hacker:"", attack:"", restoring:false, restoreStart:0, restoreDuration:3200
+      };
+    });
+    $feed.innerHTML = "";
+    $gameoverOverlay.classList.remove("show");
+    $hackbackOverlay.classList.remove("show");
+    stopRain();
+    renderNetwork();
+    updateStats();
+    pushLog("New CISO session started. Try not to get fired this time.", "INFO", true);
+  }
+
+  document.getElementById("restartBtn").addEventListener("click", restartGame);
+  document.getElementById("restartTop").addEventListener("click", restartGame);
+
+  /* ================= init ================= */
+
+  renderNetwork();
+  updateStats();
+  pushLog("CISO session started. Welcome to TotallyLegitFirewall.ai.", "INFO", true);
+  pushLog("6 assets under management. 0 incidents. That number only goes up from here.", "INFO", false);
+
+})();
+</script>
