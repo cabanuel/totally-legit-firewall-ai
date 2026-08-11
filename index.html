@@ -58,7 +58,7 @@
   .app{
     max-width:1400px;
     margin:0 auto;
-    padding:18px 20px 120px;
+    padding:18px 20px 40px;
     display:flex;
     flex-direction:column;
     gap:16px;
@@ -113,6 +113,8 @@
     border-radius:6px;
     cursor:pointer;
     text-transform:uppercase;
+    display:inline-block;
+    text-decoration:none;
   }
   .btn-ghost:hover{ border-color:var(--text-dim); color:var(--text); }
 
@@ -302,25 +304,16 @@
   .logline .msg{ color:var(--text-dim); }
   .logline.emph .msg{ color:var(--text); }
 
-  /* ---------- footer action bar ---------- */
-  .footerbar{
-    position:fixed; left:0; right:0; bottom:0; z-index:40;
-    background:linear-gradient(180deg, transparent, var(--void) 30%);
-    padding:20px 0 18px;
-  }
-  .footerbar-inner{
-    max-width:1400px; margin:0 auto; padding:0 20px;
-    display:flex; align-items:center; justify-content:center; gap:16px;
-  }
+  /* ---------- hack back control bar ---------- */
   .hackback-wrap{
+    margin-top:12px;
     background:var(--panel);
     border:1px solid var(--border);
-    border-radius:12px;
-    padding:12px 18px;
+    border-radius:10px;
+    padding:12px 16px;
     display:flex; align-items:center; gap:16px;
-    box-shadow:0 10px 40px rgba(0,0,0,0.5);
     flex-wrap:wrap;
-    justify-content:center;
+    justify-content:space-between;
   }
   .hackback-progress{ display:flex; flex-direction:column; gap:5px; min-width:170px; }
   .hackback-progress .lbl{ font-family:var(--font-mono); font-size:10px; color:var(--text-faint); letter-spacing:0.05em; text-transform:uppercase; }
@@ -388,6 +381,15 @@
     background:var(--accent); color:#241500; font-size:13px;
   }
 
+  .copyright{
+    text-align:center;
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.04em;
+    color:var(--text-faint);
+    padding-top:10px;
+  }
+
   @media (max-width:600px){
     .statrail{ grid-template-columns:repeat(2,1fr); }
     .terminal{ height:380px; }
@@ -405,6 +407,7 @@
       <div class="rolebar">Welcome back, CISO. Your board deck says <b>"zero incidents this quarter."</b> Please make that true for the next few minutes.</div>
     </div>
     <div class="hdr-actions">
+      <a class="btn-ghost" href="https://github.com/cabanuel/totally-legit-firewall-ai" target="_blank" rel="noopener noreferrer">⌥ View on GitHub</a>
       <button class="btn-ghost" id="restartTop">↺ Restart Simulation</button>
     </div>
   </header>
@@ -435,6 +438,14 @@
         <h2>Network Topology <span class="n">— 6 assets under management</span></h2>
       </div>
       <div class="network" id="network"></div>
+
+      <div class="hackback-wrap">
+        <div class="hackback-progress">
+          <div class="lbl" id="hbLabel">5 blocks to unlock HACK BACK</div>
+          <div class="bar"><i id="hbBar" style="width:0%"></i></div>
+        </div>
+        <button id="hackbackBtn" disabled>🎯 HACK BACK</button>
+      </div>
     </div>
 
     <div>
@@ -447,18 +458,8 @@
       </div>
     </div>
   </div>
-</div>
 
-<div class="footerbar">
-  <div class="footerbar-inner">
-    <div class="hackback-wrap">
-      <div class="hackback-progress">
-        <div class="lbl" id="hbLabel">5 blocks to unlock HACK BACK</div>
-        <div class="bar"><i id="hbBar" style="width:0%"></i></div>
-      </div>
-      <button id="hackbackBtn" disabled>🎯 HACK BACK</button>
-    </div>
-  </div>
+  <div class="copyright">© <span id="copyYear"></span> TotallyLegitFirewall.ai. A TotallyLegit Site.</div>
 </div>
 
 <div class="overlay" id="hackbackOverlay">
@@ -1172,6 +1173,7 @@
 
   renderNetwork();
   updateStats();
+  document.getElementById("copyYear").textContent = new Date().getFullYear();
   pushLog("CISO session started. Welcome to TotallyLegitFirewall.ai.", "INFO", true);
   pushLog("6 assets under management. 0 incidents. That number only goes up from here.", "INFO", false);
 
