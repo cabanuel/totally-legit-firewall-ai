@@ -34,6 +34,7 @@ After five (5) successful mitigations, you unlock our most requested feature: **
 - **📟 Live SIEM Terminal Feed** — A continuously scrolling log of over 500 real security events, such as *"the office cat disabled two-factor authentication"* and *"someone gave a stranger 'temporary' remote access to fix their printer."* All entries are 100% fictional. Several are suspiciously specific to your organization.
 - **🎯 HACK BACK™ Mode** — Unlockable illegal counter-hacking, complete with matrix rain, dramatic progress bars, and a webcam-based revenge fantasy. Cannot actually hack anyone. Will make you feel like you did.
 - **📉 Board Confidence Meter** — Ticks down with every breach, exactly like your actual job security.
+- **🧑‍💼 Executive Demo Mode™** — Attacks still roll in, the map still glows, the blocked counter keeps climbing, HACK BACK™ still unlocks, but nothing ever becomes a breach. Ideal for demos to people who sign budgets. Toggle it in the header, or open `index.html?demo=1`.
 - **🧯 Patch & Restore** — Our proprietary "turn it off and on again" technology, now with a progress bar.
 - **♿ Reduced Motion Support** — Because even fake cyberwarfare should be accessible.
 - **💯 Zero Backend, Zero Database, Zero Liability** — It's a single HTML file. There is nothing to breach. This is, ironically, our most secure product.
@@ -88,6 +89,8 @@ You can be our TotallyLegit CISO at [https://TotallyLegitFirewall.ai](https://to
 3. Ignore it too long and the asset goes **red and glitchy**. This is called a "breach." Click **Patch & Restore** to fix it, slowly, while feeling shame.
 4. Rack up **5 blocks** to unlock **HACK BACK**. Use it to instantly clear active threats and generate a deeply satisfying, entirely fictional revenge message.
 5. Accumulate **6 breaches** and you will be relieved of your CISO duties. There is a restart button. There is always a restart button. If only real incident response worked this way.
+
+> **Giving a demo?** Enable **Executive Demo Mode™** (header toggle, or `?demo=1`). Unmitigated attacks are automatically contained and counted as blocks instead of becoming breaches, so nobody gets fired on stage.
 
 ---
 

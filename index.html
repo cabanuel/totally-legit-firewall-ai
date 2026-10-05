@@ -117,6 +117,7 @@
     text-decoration:none;
   }
   .btn-ghost:hover{ border-color:var(--text-dim); color:var(--text); }
+  .btn-ghost[aria-pressed="true"]{ border-color:var(--good); color:var(--good); }
 
   /* ---------- stat rail ---------- */
   .statrail{
@@ -435,6 +436,7 @@
     </div>
     <div class="hdr-actions">
       <a class="btn-ghost" href="https://github.com/cabanuel/totally-legit-firewall-ai" target="_blank" rel="noopener noreferrer">⌥ View on GitHub</a>
+      <button class="btn-ghost" id="demoToggle" aria-pressed="false" title="Attacks still happen, but nothing ever becomes a breach. Safe for demos.">🧑‍💼 Executive Demo Mode™: Off</button>
       <button class="btn-ghost" id="restartTop">↺ Restart Simulation</button>
     </div>
   </header>
@@ -451,7 +453,7 @@
     </div>
     <div class="stat breach">
       <div class="label">Breaches</div>
-      <div class="value"><span id="statBreach">0</span> <small>/ 6 fireable</small></div>
+      <div class="value"><span id="statBreach">0</span> <small id="statBreachNote">/ 6 fireable</small></div>
     </div>
     <div class="stat">
       <div class="label">Board Confidence</div>
@@ -726,6 +728,11 @@
     "The firewall held. Somewhere a vendor sales rep feels validated.",
     "Blocked. The SOC Slack channel just sent nine fire emojis."
   ];
+  var DEMO_CONTAIN_MESSAGES = [
+    "was auto-contained for the duration of the demo. The CISO is smiling very hard.",
+    "was quietly handled by Demo Mode. Nobody in the room needs to know about the timer.",
+    "was saved by an undocumented demo-safe setting. Please do not ask follow-up questions."
+  ];
   var BREACH_MESSAGES = [
     "compromised. Someone is already updating the incident response Google Doc.",
     "breached. The war room has been booked. So has the good conference room.",
@@ -794,6 +801,7 @@
     hackbackBaseline: 0,
     hackbackActive: false,
     gameOver: false,
+    demoMode: false,
     lastLogs: []
   };
 
@@ -825,6 +833,8 @@
   var $gameoverText = document.getElementById("gameoverText");
   var $finalBlocks = document.getElementById("finalBlocks");
   var $finalBreach = document.getElementById("finalBreach");
+  var $demoToggle = document.getElementById("demoToggle");
+  var $statBreachNote = document.getElementById("statBreachNote");
 
   /* ================= helpers ================= */
 
@@ -885,7 +895,7 @@
       if (s.status === "attacked") {
         html += '<div class="fw-attackinfo"><span class="who">'+s.hacker+'</span><br><span class="how">'+s.attack+'</span></div>';
         html += '<div class="fw-bar"><i id="bar-'+f.id+'" style="width:100%"></i></div>';
-        html += '<button class="fw-action block" data-action="block" data-id="'+f.id+'">Deploy Mitigation</button>';
+        html += '<button class="fw-action block" data-action="block" data-id="'+f.id+'">'+(state.demoMode ? "Deploying mitigation…" : "Deploy Mitigation")+'</button>';
       } else if (s.status === "compromised") {
         html += '<div class="fw-compromised-text glitch">⚠ ACTIVE BREACH — DATA EXFIL IN PROGRESS</div>';
         html += '<div class="fw-bar"><i style="width:100%"></i></div>';
@@ -907,6 +917,7 @@
   function updateStats(){
     $statBlocks.textContent = state.blocks;
     $statBreach.textContent = state.breaches;
+    $statBreachNote.textContent = state.demoMode ? "demo mode: unfireable" : "/ 6 fireable";
 
     var attackedCount = FIREWALLS.filter(function(f){ return state.firewalls[f.id].status === "attacked"; }).length;
     var compromisedCount = FIREWALLS.filter(function(f){ return state.firewalls[f.id].status === "compromised"; }).length;
@@ -1445,6 +1456,29 @@
     if (state.breaches >= 6) triggerGameOver();
   }
 
+  function autoContainAttack(id){
+    var s = state.firewalls[id];
+    if (!s || s.status !== "attacked") return;
+    s.status = "secure";
+    state.blocks++;
+    pushLog(s.def.name+" "+pick(DEMO_CONTAIN_MESSAGES), "OK", true);
+    renderNetwork();
+    updateStats();
+  }
+
+  function setDemoMode(on){
+    state.demoMode = on;
+    $demoToggle.setAttribute("aria-pressed", on ? "true" : "false");
+    $demoToggle.textContent = "🧑‍💼 Executive Demo Mode™: " + (on ? "On" : "Off");
+    renderNetwork();
+    updateStats();
+    try {
+      var url = new URL(window.location.href);
+      if (on) url.searchParams.set("demo", "1"); else url.searchParams.delete("demo");
+      window.history.replaceState(null, "", url);
+    } catch (e) { /* file:// and sandboxed frames may refuse; the toggle still works */ }
+  }
+
   function startRestore(id){
     var s = state.firewalls[id];
     if (!s || s.status !== "compromised" || s.restoring) return;
@@ -1474,7 +1508,8 @@
           var bar = document.getElementById("bar-"+f.id);
           if (bar) bar.style.width = pct + "%";
           if (elapsed >= s.attackDuration) {
-            compromiseAttack(f.id);
+            if (state.demoMode) autoContainAttack(f.id);
+            else compromiseAttack(f.id);
           }
         } else if (s.status === "compromised" && s.restoring) {
           var relapsed = now - s.restoreStart;
@@ -1675,11 +1710,19 @@
     pushLog("New CISO session started. Try not to get fired this time.", "INFO", true);
   }
 
+  $demoToggle.addEventListener("click", function(){
+    setDemoMode(!state.demoMode);
+    pushLog(state.demoMode
+      ? "Executive Demo Mode™ enabled. Breaches are off; everything else is as stressful as ever."
+      : "Executive Demo Mode™ disabled. Breaches are back. So is accountability.", "INFO", true);
+  });
+
   document.getElementById("restartBtn").addEventListener("click", restartGame);
   document.getElementById("restartTop").addEventListener("click", restartGame);
 
   /* ================= init ================= */
 
+  setDemoMode(new URLSearchParams(window.location.search).has("demo"));
   renderNetwork();
   updateStats();
   document.getElementById("copyYear").textContent = new Date().getFullYear();
